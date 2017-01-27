@@ -50,10 +50,7 @@ First we load the data to use (see the raw .Rmd file to change the data file as 
 
 ```{r setupdata1E, echo=TRUE, tidy=TRUE}
 # Please ENTER the name of the file with the data used. The file should be a .csv with one row per observation (e.g. person) and one column per attribute. Do not add .csv at the end, make sure the data are numeric.
-datafile_name = "data/Boats.csv"
-
-# Please enter the minimum number below which you would like not to print - this makes the readability of the tables easier. Default values are ei"ther 10e6 (to print everything) or 0.5. Try both to see the difference.
-MIN_VALUE = 0.5
+datafile_name = "Dataset/IMDB-database.csv"
 
 # Please enter the maximum number of observations to show in the report and slides. 
 # DEFAULT is 10. If the number is large the report may be slow.
@@ -62,12 +59,34 @@ max_data_report = 10
 
 ```{r}
 ProjectData <- read.csv(datafile_name)
-ProjectData <- data.matrix(ProjectData) 
+ProjectData <- as.matrix(ProjectData)
+
+topdirnames = tail(names(sort(table(ProjectData[,"director_name"]))), 20)
+hastopdirector = ProjectData[,"director_name"] %in% topdirnames
+datafile_topnames = "Dataset/top20actors&directors.csv"
+Topnames <- read.csv(datafile_topnames)
+Topnames <- as.matrix(Topnames)
+Topnames<-Topnames[,1]
+
+hastopactor1 = ProjectData[,"actor_1_name"] %in% Topnames
+hastopactor2 = ProjectData[,"actor_2_name"] %in% Topnames
+hastopactor3 = ProjectData[,"actor_3_name"] %in% Topnames
+net_USD= as.numeric(ProjectData[,"net_USD"])
+numeric_projectdata = cbind(as.numeric(ProjectData[,"movie_ID"]),hastopactor1,hastopactor2,hastopactor3,hastopdirector,net_USD,as.numeric(ProjectData[,"color"]),as.numeric(ProjectData[,"gross_USD"]),as.numeric(ProjectData[,"cast_total_facebook_likes"]),as.numeric(ProjectData[,"facenumber_in_poster"]),as.numeric(ProjectData[,"title_year"]),as.numeric(ProjectData[,"actor_1_facebook_likes"]),as.numeric(ProjectData[,"actor_2_facebook_likes"]),as.numeric(ProjectData[,"actor_3_facebook_likes"]),as.numeric(ProjectData[,"movie_facebook_likes."]),as.numeric(ProjectData[,"num_voted_users"]),as.numeric(ProjectData[,"duration"]),as.numeric(ProjectData[,"budget_USD"]),as.numeric(ProjectData[,"profitable"]),as.numeric(ProjectData[,"director_facebook_likes"]),as.numeric(ProjectData[,"num_user_for_reviews"]))
+
 ProjectData_INITIAL <- ProjectData
 
 ```
 
 <hr>\clearpage
+#Part 1: making the data numeric
+```{r}
+datafile_topnames = "Dataset/top20actors&directors.csv"
+Topnames <- read.csv(datafile_topnames)
+'Topnames <- data.matrix(Topnames)
+
+```
+
 
 # Part 1: Key Customer Characteristics
 
