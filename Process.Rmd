@@ -72,9 +72,24 @@ hastopactor1 = ProjectData[,"actor_1_name"] %in% Topnames
 hastopactor2 = ProjectData[,"actor_2_name"] %in% Topnames
 hastopactor3 = ProjectData[,"actor_3_name"] %in% Topnames
 net_USD= as.numeric(ProjectData[,"net_USD"])
-numeric_projectdata = cbind(as.numeric(ProjectData[,"movie_ID"]),hastopactor1,hastopactor2,hastopactor3,hastopdirector,net_USD,as.numeric(ProjectData[,"color"]),as.numeric(ProjectData[,"gross_USD"]),as.numeric(ProjectData[,"cast_total_facebook_likes"]),as.numeric(ProjectData[,"facenumber_in_poster"]),as.numeric(ProjectData[,"title_year"]),as.numeric(ProjectData[,"actor_1_facebook_likes"]),as.numeric(ProjectData[,"actor_2_facebook_likes"]),as.numeric(ProjectData[,"actor_3_facebook_likes"]),as.numeric(ProjectData[,"movie_facebook_likes."]),as.numeric(ProjectData[,"num_voted_users"]),as.numeric(ProjectData[,"duration"]),as.numeric(ProjectData[,"budget_USD"]),as.numeric(ProjectData[,"profitable"]),as.numeric(ProjectData[,"director_facebook_likes"]),as.numeric(ProjectData[,"num_user_for_reviews"]))
+colormovie= as.numeric(ProjectData[,"color"])
+cast_facebook_likes= as.numeric(ProjectData[,"cast_total_facebook_likes"])
+movieposter_faces= as.numeric(ProjectData[,"facenumber_in_poster"])
+movie_year= as.numeric(ProjectData[,"title_year"])
+actor1_fb_likes = as.numeric(ProjectData[,"actor_1_facebook_likes"])
+actor2_fb_likes = as.numeric(ProjectData[,"actor_2_facebook_likes"])
+actor3_fb_likes = as.numeric(ProjectData[,"actor_3_facebook_likes"])
+movie_fb_likes= as.numeric(ProjectData[,"movie_facebook_likes."])
+number_votes = as.numeric(ProjectData[,"num_voted_users"])
+movie_duration = as.numeric(ProjectData[,"duration"])
+movie_budget= as.numeric(ProjectData[,"budget_USD"])
+movie_profitable = as.numeric(ProjectData[,"profitable"])
+director_fb_likes= as.numeric(ProjectData[,"director_facebook_likes"])
+number_reviews= as.numeric(ProjectData[,"num_user_for_reviews"])
+numeric_projectdata = cbind(as.numeric(ProjectData[,"movie_ID"]),hastopactor1,hastopactor2,hastopactor3,hastopdirector,net_USD,colormovie,cast_facebook_likes,movieposter_faces,movie_year,actor1_fb_likes,actor2_fb_likes,actor3_fb_likes,movie_fb_likes,number_votes,movie_duration,movie_budget,movie_profitable,director_fb_likes,number_reviews)
 
-ProjectData_INITIAL <- ProjectData
+ProjectData_INITIAL <- numeric_projectdata
+
 
 ```
 
