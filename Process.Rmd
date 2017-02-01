@@ -438,15 +438,8 @@ tree_importance_final[tree_ordered_drivers] <- tree_importance
 tree_importance_final <- tree_importance_final/max(abs(tree_importance_final))
 tree_importance_final <- tree_importance_final*sign(log_importance)
 
-large_tree_importance = CART_tree_large$variable.importance
-large_tree_ordered_drivers = as.numeric(gsub("\\IV"," ",names(CART_tree_large$variable.importance)))
-large_tree_importance_final = rep(0,length(independent_variables))
-large_tree_importance_final[large_tree_ordered_drivers] <- large_tree_importance
-large_tree_importance_final <- large_tree_importance_final/max(abs(large_tree_importance_final))
-large_tree_importance_final <- large_tree_importance_final*sign(log_importance)
-
-Importance_table <- cbind(tree_importance_final,large_tree_importance_final, log_importance)
-colnames(Importance_table) <- c("CART 1", "CART 2", "Logistic Regr.")
+Importance_table <- cbind(tree_importance_final, log_importance)
+colnames(Importance_table) <- c("CART 1", "Logistic Regr.")
 rownames(Importance_table) <- rownames(log_importance)
 
 iprint.df(Importance_table)
@@ -505,8 +498,8 @@ best_profits_logistic = df[which.max(df$Profit),]
 These are the maximum total profit achieved in the test data using the three classifiers (without any segment specific analysis so far).
 
 ```{r}
-best_profits = rbind(best_profits_small_tree, best_profits_large_tree, best_profits_logistic)
-rownames(best_profits) <- c("Small Tree", "Large Tree", "Logistic Regression")
+best_profits = rbind(best_profits_small_tree, best_profits_logistic)
+rownames(best_profits) <- c("Small Tree", "Logistic Regression")
 iprint.df(round(best_profits, 2))
 ```
 # Part 4: Conclusions
