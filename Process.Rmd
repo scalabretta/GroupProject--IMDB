@@ -44,9 +44,21 @@ options(knitr.kable.NA = '')
 
 <hr>\clearpage
 
+# Goal
+Understand key film segments that can explain the needed characteristics to be on the top 250 movies of IMDB, from a data base with 3.871 movies.
+
+
 # The Data
 
-First we load the data to use (see the raw .Rmd file to change the data file as needed):
+To reach our goal, we took 5 key steps to make the information analysis possible:
+1.	Load IMDB data from 3.781 movies with 28 different variables including movie length, budget, gross revenues, director, main characters, etc.
+2.	Confirm all the data is metric and which one to be used
+3.	Scale the data
+4.	Check the data, by doing basic visual exploration, descriptive statistics, and correlations of the several variables
+5.	Choose and interpret the number of factors
+
+
+#Step 1: we load the data to use (see the raw .Rmd file to change the data file as needed):
 
 ```{r setupdata1E, echo=TRUE, tidy=TRUE}
 # Please ENTER the name of the file with the data used. The file should be a .csv with one row per observation (e.g. person) and one column per attribute. Do not add .csv at the end, make sure the data are numeric.
@@ -57,7 +69,7 @@ datafile_name = "Dataset/IMDB-database.csv"
 max_data_report = 10
 ```
 
-# Making the data numeric
+#Step 2: We selected from the 28 variables the 18 factors that seemed more relevant / made more business sense to explain the IMDB score results and made them numeric data
 
 ```{r}
 ProjectData <- read.csv(datafile_name)
@@ -91,7 +103,9 @@ number_reviews= as.numeric(ProjectData[,"num_user_for_reviews"])
 numeric_projectdata = cbind(as.numeric(ProjectData[,"movie_ID"]),hastopactor1,hastopactor2,hastopactor3,hastopdirector,net_USD,cast_facebook_likes,movieposter_faces,movie_year,actor1_fb_likes,actor2_fb_likes,actor3_fb_likes,movie_fb_likes,number_votes,movie_duration,movie_budget,movie_profitable,director_fb_likes,number_reviews)
 
 ```
-#scaling the data
+
+#Step 3: We scaled the data because of the different magnitude of the numbers in the data under consideration, allowing to present results in relative terms and eliminate outliers
+
 ```{r}
 
 ProjectData_scaled = apply(numeric_projectdata,2 , function(r) {
@@ -100,7 +114,10 @@ ProjectData_scaled = apply(numeric_projectdata,2 , function(r) {
     res
 })
 ```
-# Part 2: Some descriptive statistics
+
+# Step 4: We analysed the data by checking the variables results in observations, its statistical representation and correlations
+
+Considering the observations, we could confirm how the results made business sense, with the third observation having the highest score in the number of votes in the output table, and then in database being the one with higher absolute number of votes.
 
 ```{r setupfactor, echo=TRUE, tidy=TRUE}
 # Please ENTER then original raw attributes to use. 
@@ -141,9 +158,10 @@ The data we use here have the following descriptive statistics:
 iprint.df(round(my_summary(ProjectDataFactor), 2))
 ```
 
-## Step 3: Check Correlations
 
-This is the correlation matrix of the customer responses to the `r ncol(ProjectDataFactor)` attitude questions - which are the only questions that we will use for the segmentation (see the case):
+The correlation matrix of the customer responses to the `r ncol(ProjectDataFactor)` attitude questions - which are the only questions that we will use for the segmentation.
+
+In the correlations where we see how some of the variables have strong correlations. The most obvious ones are number of movie Facebook likes with the main actor Facebook likes and the number of IMDB reviews with the number of IMDB votes.
 
 ```{r}
 thecor = round(cor(ProjectDataFactor),2)
@@ -184,9 +202,16 @@ iplot.df(melt(df, id="components"))
 
 
 
-## Step 5: Interpret the factors
+## Step 5: we interpret the factors and look at the factor aggregated 
 
-Let's now see how the "top factors" look like. 
+For the factors segmentation, we developed a screen plot and analysed the cumulative explained variance of the factors. In these factor analysis, we decided to use seven components that explain 70% of the total variance, assuring a high value that explain the results. Following this, we looked at the factors aggregated in each component and our business sense told that the results were logic:
+-	Component 1: positively relates movies Facebook likes with the main and secondary actor Facebook likes
+-	Component 2: positively combines number of IMDB movie reviews with number of IMDB movie votes
+-	Component 3: negatively relates movies budget with net profits
+-	Component 4 and 5: positively combines actor and Director name with Facebook likes 
+-	Component 6: positively combines the year of the movie with the number of movie Facebook likes
+-	Component 7: reflects the number of faces in the movies poster 
+
 
 ```{r}
 if (factor_selectionciterion == "eigenvalue")
