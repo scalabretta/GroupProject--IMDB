@@ -3,7 +3,7 @@ title: "The next blockbuster hit"
 author: "stefania, will, joao, miguel"
 output:
   html_document:
-    css: ../../AnalyticsStyles/default.css
+    css: AnalyticsStyles/default.css
     theme: paper
     toc: yes
     toc_float:
@@ -11,7 +11,7 @@ output:
       smooth_scroll: yes
   pdf_document:
     includes:
-      in_header: ../../AnalyticsStyles/default.sty
+      in_header: AnalyticsStyles/default.sty
 always_allow_html: yes
 ---
 
@@ -34,7 +34,7 @@ The "high level" process template is split in 3 parts, corresponding to the cour
 TEXT
 
 ```{r setuplibraries, echo=FALSE, message=FALSE}
-suppressWarnings(source("C:/Users/Stefania/Documents/BDA/GroupProject--IMDB/AnalyticsLibraries/library.R"))
+suppressWarnings(source("AnalyticsLibraries/library.R"))
 # Package options
 suppressWarnings(ggthemr('fresh'))  # ggplot theme
 opts_knit$set(progress=FALSE, verbose=FALSE)
@@ -263,7 +263,7 @@ actual_0_predict_0 = 0
 
 # Please ENTER the probability threshold above which an observations  
 # is predicted as class 1:
-Probability_Threshold=50 # between 1 and 99%
+Probability_Threshold=70 # between 1 and 99%
 
 # Please ENTER the percentage of data used for estimation
 estimation_data_percent = 80
@@ -274,7 +274,7 @@ random_sampling = 0
 
 # Tree parameter
 # PLEASE ENTER THE Tree (CART) complexity control cp (e.g. 0.001 to 0.02, depending on the data)
-CART_cp = 0.01
+CART_cp = 0.02
 
 # Please enter the minimum size of a segment for the analysis to be done only for that segment
 min_segment = 100
@@ -287,14 +287,14 @@ Probability_Threshold = Probability_Threshold/100 # make it between 0 and 1
 
 dependent_variable = unique(sapply(dependent_variable,function(i) min(ncol(ProjectData), max(i,1))))
 independent_variables = unique(sapply(independent_variables,function(i) min(ncol(ProjectData), max(i,1))))
-
-if (length(unique(ProjectData[,dependent_variable])) !=2){
+```
+#if (length(unique(ProjectData[,dependent_variable])) !=2){
   cat("\n*****\n BE CAREFUL, THE DEPENDENT VARIABLE TAKES MORE THAN 2 VALUES...")
   cat("\nSplitting it around its median...\n*****\n ")
   new_dependent = ProjectData[,dependent_variable] >= median(ProjectData[,dependent_variable])
   ProjectData[,dependent_variable] <- 1*new_dependent
 }
-
+```{r}
 Profit_Matrix = matrix(c(actual_1_predict_1, actual_0_predict_1, actual_1_predict_0, actual_0_predict_0), ncol=2)
 colnames(Profit_Matrix)<- c("Predict 1", "Predict 0")
 rownames(Profit_Matrix) <- c("Actual 1", "Actual 0")
@@ -302,46 +302,7 @@ test_data_percent = 100-estimation_data_percent-validation_data_percent
 CART_control = rpart.control(cp = CART_cp)
 ```
 
-**Questions**
 
-1. How do you select the profit/cost values for the analysis? Does the variable `r Profit_Matrix` above relate to the final business decisions? How?
-2. What does the variable `r Probability_Threshold` affect? Does it relate to the final business decisions? How?
-
-**Answers**
-
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-
-We will use two classification trees and logistic regression. You can select "complexity" control for one of the classification trees in the code chunk of the raw .Rmd file here
-
-```{r CART_control, echo=TRUE, tidy=TRUE}
-CART_control = 0.001
-```
-
-**Question**
-
-1. How can this parameter affect the final results? What business implications can this parameter choice have?
-
-**Answer**
-
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
 
 This is a "small tree" classification for example:
 
@@ -395,7 +356,8 @@ rpart.plot(CART_tree, box.palette="OrBu", type=3, extra=1, fallen.leaves=F, bran
 ```
 
 ```{r}
-CART_tree_large<-rpart(formula, data= estimation_data_nolabel,method="class", control=rpart.control(cp = 0.005))
+CART_tree_large<-rpart(formula, data= estimation_data_nolabel,method="class", control=rpart.control(cp = 0.001))
+rpart.plot(CART_tree_large, box.palette="OrBu", type=3, extra=1, fallen.leaves=F, branch.lty=3)
 ```
 
 ```{r}
@@ -426,6 +388,8 @@ formula_log=paste(colnames(estimation_data[,dependent_variable,drop=F]),paste(Re
 logreg_solution <- glm(formula_log, family=binomial(link="logit"),  data=estimation_data)
 
 log_coefficients = round(summary(logreg_solution)$coefficients,1)
+iprint.df(log_coefficients)
+
 ```
 
 ```{r}
@@ -544,199 +508,3 @@ best_profits = rbind(best_profits_small_tree, best_profits_large_tree, best_prof
 rownames(best_profits) <- c("Small Tree", "Large Tree", "Logistic Regression")
 iprint.df(round(best_profits, 2))
 ```
-
-<hr>\clearpage
-
-# Part 4: Business Decisions
-
-We will now get the results of the overall process (parts 1-3) and based on them make business decisions (e.g. answer the questions of the Boats case study). Specifically, we will study the purchase drivers for each segment we found and consider the profit curves of the developed models on our test data. 
-
-**Final Solution: Segment Specific Analysis**
-
-Let's see first how many observations we have in each segment, for the segments we selected above:
-
-```{r}
-# Let's rename cluster_memberships as cluster_ids
-cluster_ids <- cluster_memberships
-
-cluster_size = NULL
-for (i in sort(unique(cluster_ids))){
-  cluster_size = c(cluster_size,sum(cluster_ids == i))
-  }
-cluster_size = matrix(cluster_size, nrow=1)
-colnames(cluster_size) <- paste("Segment", 1:length(cluster_size), sep=" ")
-rownames(cluster_size) <- "Number of Obs."
-iprint.df(cluster_size, scale=TRUE)
-```
-
-This is our final segment specific analysis and solution. We can study now the purchase drivers (average answers to Q16 of the survey) for each segment. They are as follows:
-
-```{r}
-actual_class<- test_data[,dependent_variable]
-probs_tree = 0*test_Probability_class1_tree
-probs_tree_large = 0*test_Probability_class1_tree_large
-probs_log = 0*test_Probability_class1_log
-Log_Drivers = NULL
-
-for (i in sort(unique(cluster_ids))){
-  useonly = which(cluster_ids==i)
-  if (length(useonly) >= min_segment){
-    
-    test_ids_used = intersect(test_data_ids,useonly)
-    probs_to_fill = which(sapply(test_data_ids, function(i) sum(test_ids_used==i)) !=0)
-    estimation_data_clus=ProjectData[intersect(estimation_data_ids,useonly) ,]
-    test_data_clus=ProjectData[intersect(test_data_ids,useonly),]
-    
-    ###
-    estimation_data_clus_nolabel = cbind(estimation_data_clus[,dependent_variable], estimation_data_clus[,independent_variables])
-    colnames(estimation_data_clus_nolabel)<- c(colnames(estimation_data_clus)[dependent_variable],independent_variables_nolabel)
-    
-    test_data_clus_nolabel = cbind(test_data_clus[,dependent_variable], test_data_clus[,independent_variables])
-    colnames(test_data_clus_nolabel)<- c(dependent_variable,independent_variables_nolabel)
-    
-    estimation_data_clus = data.frame(estimation_data_clus)
-    test_data_clus = data.frame(test_data_clus)
-    estimation_data_clus_nolabel = data.frame(estimation_data_clus_nolabel)
-    test_data_clus_nolabel = data.frame(test_data_clus_nolabel)
-    ###
-    
-    CART_tree<-rpart(formula, data= estimation_data_clus_nolabel,method="class", control=CART_control)    
-    CART_tree_large<-rpart(formula, data= estimation_data_clus_nolabel,method="class", control=rpart.control(cp = 0.005))
-    logreg_solution <- glm(formula_log, family=binomial(link="logit"),  data=estimation_data_clus)
-    
-    #####
-    
-    test_Probability_class1_tree<-predict(CART_tree, test_data_clus_nolabel)[,2]
-    test_Probability_class1_tree_large<-predict(CART_tree_large, test_data_clus_nolabel)[,2]
-    test_Probability_class1_log<-predict(logreg_solution, type="response", newdata=test_data_clus[,independent_variables])
-    
-    #######
-    probs_tree[probs_to_fill] <- test_Probability_class1_tree
-    probs_tree_large[probs_to_fill] <- test_Probability_class1_tree
-    probs_log[probs_to_fill] <- test_Probability_class1_log
-    
-    
-    log_coefficients = round(summary(logreg_solution)$coefficients,1)
-    Log_Drivers_segment = tail(log_coefficients[,"z value", drop=F],-1) # remove the intercept
-    Log_Drivers_segment = Log_Drivers_segment/max(abs(Log_Drivers_segment))
-    
-    tree_importance = CART_tree$variable.importance
-    tree_ordered_drivers = as.numeric(gsub("\\IV"," ",names(CART_tree$variable.importance)))
-    tree_importance_final = rep(0,length(independent_variables))
-    tree_importance_final[tree_ordered_drivers] <- tree_importance
-    tree_importance_final <- tree_importance_final/max(abs(tree_importance_final))
-    tree_importance_final <- tree_importance_final*sign(Log_Drivers_segment)
-    
-    #Log_Drivers = cbind(Log_Drivers,tree_importance_final)
-    Log_Drivers = cbind(Log_Drivers,Log_Drivers_segment)
-
-    
-    }
-  }
-colnames(Log_Drivers) <- paste("Segment", 1:length(unique(cluster_ids)), sep = " ")
-iprint.df(round(tail(Log_Drivers,-1), 2))
-```
-
-The profit curves for the test data in this case are as follows. The profit curve using the small classification tree is: 
-
-```{r}
-actual_class<- test_data[,dependent_variable]
-
-probs = probs_tree
-xaxis = sort(unique(c(0,1,probs)), decreasing = TRUE)
-res = Reduce(cbind,lapply(xaxis, function(prob){
-  useonly = which(probs >= prob)
-  predict_class = 1*(probs >= prob)
-  theprofit = Profit_Matrix[1,1]*sum(predict_class==1 & actual_class ==1)+
-    Profit_Matrix[1,2]*sum(predict_class==0 & actual_class ==1)+
-    Profit_Matrix[2,1]*sum(predict_class==1 & actual_class ==0)+
-    Profit_Matrix[2,2]*sum(predict_class==0 & actual_class ==0)
-  
-  c(100*length(useonly)/length(actual_class), theprofit) 
-  }))
-xaxis = res[1,]; yaxis = res[2,]
-names(xaxis)<- NULL; names(yaxis) <- NULL
-df<-data.frame(Percentile = xaxis, Profit = yaxis)
-iplot.df(df, x="Percentile", y="Profit", v=NULL)
-
-best_profits_small_tree = df[which.max(df$Profit),]
-```
-
-The profit curve using the large classification tree is: 
-
-```{r}
-probs = probs_tree_large
-xaxis = sort(unique(c(0,1,probs)), decreasing = TRUE)
-res = Reduce(cbind,lapply(xaxis, function(prob){
-  useonly = which(probs >= prob)
-  predict_class = 1*(probs >= prob)
-  theprofit = Profit_Matrix[1,1]*sum(predict_class==1 & actual_class ==1)+
-    Profit_Matrix[1,2]*sum(predict_class==0 & actual_class ==1)+
-    Profit_Matrix[2,1]*sum(predict_class==1 & actual_class ==0)+
-    Profit_Matrix[2,2]*sum(predict_class==0 & actual_class ==0)
-  
-  c(100*length(useonly)/length(actual_class), theprofit) 
-  }))
-xaxis = res[1,]; yaxis = res[2,]
-names(xaxis)<- NULL; names(yaxis) <- NULL
-df<-data.frame(Percentile = xaxis, Profit = yaxis)
-iplot.df(df, x="Percentile", y="Profit", v=NULL)
-
-best_profits_large_tree = df[which.max(df$Profit),]
-```
-
-The profit curve using the logistic regression classifier: 
-
-```{r}
-probs = probs_log
-xaxis = sort(unique(c(0,1,probs)), decreasing = TRUE)
-res = Reduce(cbind,lapply(xaxis, function(prob){
-  useonly = which(probs >= prob)
-  predict_class = 1*(probs >= prob)
-  theprofit = Profit_Matrix[1,1]*sum(predict_class==1 & actual_class ==1)+
-    Profit_Matrix[1,2]*sum(predict_class==0 & actual_class ==1)+
-    Profit_Matrix[2,1]*sum(predict_class==1 & actual_class ==0)+
-    Profit_Matrix[2,2]*sum(predict_class==0 & actual_class ==0)
-  
-  c(100*length(useonly)/length(actual_class), theprofit) 
-  }))
-xaxis = res[1,]; yaxis = res[2,]
-names(xaxis)<- NULL; names(yaxis) <- NULL
-df<-data.frame(Percentile = xaxis, Profit = yaxis)
-iplot.df(df, x="Percentile", y="Profit", v=NULL)
-
-best_profits_logistic = df[which.max(df$Profit),]
-```
-
-These are the maximum total profit achieved in the test data using the three classifiers with the selected market segmentation solution.
-
-```{r}
-best_profits = rbind(best_profits_small_tree, best_profits_large_tree, best_profits_logistic)
-rownames(best_profits) <- c("Small Tree", "Large Tree", "Logistic Regression")
-iprint.df(round(best_profits, 2))
-```
-
-**Questions:**
-
-1. What are the main purchase drivers for the segments and solution you found?
-2. How different are the purchase drivers you find when you use segmentation versus when you study all customers as "one segment"? Why? 
-3. Based on the overall analysis, what segmentation would you choose?
-4. What is the business profit the company can achieve (as measured with the test data) based on your solution? 
-5. What business decisions can the company make based on this analysis?
-
-**Answers:**
-
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-
-**You have now completed your first market segmentation project.** Do you have data from another survey you can use with this report now? 
-
-**Extra question**: explore and report a new segmentation analysis... 
