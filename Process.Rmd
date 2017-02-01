@@ -239,6 +239,13 @@ iprint.df(t(head(NEW_ProjectData, 10)), scale=TRUE)
 
 
 #Part 3 Classification
+
+In order to predict whether a move will be in the top 250 imdb movies or not based on the 7 factors we found above we use classification methods: in particular the two methods we use are the CART tree methodology and the logistic regression method.
+
+To start off, we set the variables for CART, and of the profit matrices to then evaluate our predictions. 
+As mentioned, the dependent variable is a vector of 0,1 depending on whether the movie is top 250 or not. the independent variables are the seven factors.
+For the profit matrices, given the low percentage of top 250 movies (250/4000) we assume that guessing the movie gives a +50 and wrongly predicting it will be a high grossing movie gives a -1.
+
 ```{r}
 Istop250 = as.numeric(startProjectData[,"imdb_top_250"])
 ProjectClass<-cbind(Istop250,NEW_ProjectData)
@@ -253,30 +260,24 @@ dependent_variable= 1
 independent_variables= c(2:8)
 
 # Please ENTER the profit/cost values for the correctly and wrong classified data:
-actual_1_predict_1 = 100
+actual_1_predict_1 = 50
 actual_1_predict_0 = 0
 actual_0_predict_1 = -1
 actual_0_predict_0 = 0
 ```
-```{r}
 
+We then determine the parameters that will be used for the CART analysis- in particular we set the probabiity threshold to be 65%. We originally used 70% but some of the clusters were exactly 70% so we reduced to capture those.
 
-# Please ENTER the probability threshold above which an observations  
-# is predicted as class 1:
-Probability_Threshold=70 # between 1 and 99%
+We also determine how much data we want to use to estimate the parameters, and how much data we want to use to determine how correct our model is (we use 80% of the data for estimation)
 
-# Please ENTER the percentage of data used for estimation
+Finally we determine the level of complexity of the tree we would like to achieve by choosing the complexity parameter- having tried a few options 0.05 gave a tree that was relatively simple but gives reasonable decision nodes.
+
+```{r,echo=TRUE, tidy=TRUE}
+Probability_Threshold=65 # between 1 and 99%
 estimation_data_percent = 80
 validation_data_percent = 10
-
-# Please enter 0 if you want to "randomly" split the data in estimation and validation/test
 random_sampling = 0
-
-# Tree parameter
-# PLEASE ENTER THE Tree (CART) complexity control cp (e.g. 0.001 to 0.02, depending on the data)
-CART_cp = 0.02
-
-# Please enter the minimum size of a segment for the analysis to be done only for that segment
+CART_cp = 0.005
 min_segment = 100
 ```
 
@@ -288,12 +289,7 @@ Probability_Threshold = Probability_Threshold/100 # make it between 0 and 1
 dependent_variable = unique(sapply(dependent_variable,function(i) min(ncol(ProjectData), max(i,1))))
 independent_variables = unique(sapply(independent_variables,function(i) min(ncol(ProjectData), max(i,1))))
 ```
-#if (length(unique(ProjectData[,dependent_variable])) !=2){
-  cat("\n*****\n BE CAREFUL, THE DEPENDENT VARIABLE TAKES MORE THAN 2 VALUES...")
-  cat("\nSplitting it around its median...\n*****\n ")
-  new_dependent = ProjectData[,dependent_variable] >= median(ProjectData[,dependent_variable])
-  ProjectData[,dependent_variable] <- 1*new_dependent
-}
+
 ```{r}
 Profit_Matrix = matrix(c(actual_1_predict_1, actual_0_predict_1, actual_1_predict_0, actual_0_predict_0), ncol=2)
 colnames(Profit_Matrix)<- c("Predict 1", "Predict 0")
@@ -304,7 +300,7 @@ CART_control = rpart.control(cp = CART_cp)
 
 
 
-This is a "small tree" classification for example:
+The resulting classification tree is below:
 
 ```{r}
 # FIrst we split the data in estimation, validation, and test
@@ -355,34 +351,30 @@ CART_tree<-rpart(formula, data= estimation_data_nolabel,method="class", control=
 rpart.plot(CART_tree, box.palette="OrBu", type=3, extra=1, fallen.leaves=F, branch.lty=3)
 ```
 
-```{r}
-CART_tree_large<-rpart(formula, data= estimation_data_nolabel,method="class", control=rpart.control(cp = 0.001))
-rpart.plot(CART_tree_large, box.palette="OrBu", type=3, extra=1, fallen.leaves=F, branch.lty=3)
-```
+As we can see from the graph, there are 8 different ending points- of these only 3 would lead the movie to be in the top 250.
+To have a feeling of whether the classification makes sense we look at two example decisions.
+1) Example decision to classify as a 0: one decision for example looks at whether Factor 2 < 1.1. Factor 2 corresponded to the number of likes and review of the movies. As typically movies with high reviews on IMDB and a lot of likes tend to be popular a low score on this factor indicates which pretty high probability  
+2) Example decision to classify as a 1: one decision for example looks at whether Factor 2 > 1.1, Factor 3 > 0.88 and Factor 6>1.8. bla bla
 
 ```{r}
 # Let's first calculate all probabilites for the estimation, validation, and test data
 estimation_Probability_class1_tree<-predict(CART_tree, estimation_data_nolabel)[,2]
-estimation_Probability_class1_tree_large<-predict(CART_tree_large, estimation_data_nolabel)[,2]
 
 validation_Probability_class1_tree<-predict(CART_tree, validation_data_nolabel)[,2]
-validation_Probability_class1_tree_large<-predict(CART_tree_large, validation_data_nolabel)[,2]
 
 test_Probability_class1_tree<-predict(CART_tree, test_data_nolabel)[,2]
-test_Probability_class1_tree_large<-predict(CART_tree_large, test_data_nolabel)[,2]
-
 
 estimation_prediction_class_tree=1*as.vector(estimation_Probability_class1_tree > Probability_Threshold)
-estimation_prediction_class_tree_large=1*as.vector(estimation_Probability_class1_tree_large > Probability_Threshold)
+
 
 validation_prediction_class_tree=1*as.vector(validation_Probability_class1_tree > Probability_Threshold)
-validation_prediction_class_tree_large=1*as.vector(validation_Probability_class1_tree_large > Probability_Threshold)
 
 test_prediction_class_tree=1*as.vector(test_Probability_class1_tree > Probability_Threshold)
-test_prediction_class_tree_large=1*as.vector(test_Probability_class1_tree_large > Probability_Threshold)
 ```
 
-```{r}
+We then run a logistic regression to have an alternative classification of the movies
+
+```{r,echo=TRUE, tidy=TRUE}
 formula_log=paste(colnames(estimation_data[,dependent_variable,drop=F]),paste(Reduce(paste,sapply(head(independent_variables,-1), function(i) paste(colnames(estimation_data)[i],"+",sep=""))),colnames(estimation_data)[tail(independent_variables,1)],sep=""),sep="~")
 
 logreg_solution <- glm(formula_log, family=binomial(link="logit"),  data=estimation_data)
@@ -391,6 +383,9 @@ log_coefficients = round(summary(logreg_solution)$coefficients,1)
 iprint.df(log_coefficients)
 
 ```
+
+From the logistic regression we can determine what the most significant factors are and whether some of the factors are not significant: in our case it seems that factor 7 is not statistically significant. This is in lines with expectations as factor 7 is the number of faces in the movie poster that we did not expect to have significant impact.
+
 
 ```{r}
 estimation_Probability_class1_log<-predict(logreg_solution, type="response", newdata=estimation_data[,independent_variables])
@@ -402,7 +397,10 @@ validation_prediction_class_log=1*as.vector(validation_Probability_class1_log > 
 test_prediction_class_log=1*as.vector(test_Probability_class1_log > Probability_Threshold)
 ```
 
-After also running the large tree and the logistic regression classifiers, we can then check how much "weight" these three methods put on the different purchase drivers (Q16 of the survey):
+We then compare the two methods by checking how much "weight" these three methods put on the different factors: the below table shows the importance assigned to each factor in the classification (as a percentage of the importance of the largest factor)
+
+As we can see the results of the two methodologies are in line and the the most predictive factors are factor 2, factor 3 and factor 5- respectively number of IMDB reviews, profit of movie and number of facebook likes. This is in line with expectations. 
+Factor 7 is the least important with both methodologies.
 
 ```{r}
 log_importance = tail(log_coefficients[,"z value", drop=F],-1) # remove the intercept
@@ -429,7 +427,7 @@ rownames(Importance_table) <- rownames(log_importance)
 iprint.df(Importance_table)
 ```
 
-Finally, if we were to use the estimated classification models on the test data, we would get the following profit curves (see the raw .Rmd file to select the business profit parameters). 
+Finally, if we were to use the estimated classification models on the test data, we would get the following profit curves (using the profit parameters set earlier)
 
 The profit curve using the small classification tree: 
 
@@ -455,28 +453,6 @@ iplot.df(df, x="Percentile", y="Profit", v=NULL)
 best_profits_small_tree = df[which.max(df$Profit),]
 ```
 
-The profit curve using the large classification tree: 
-
-```{r}
-probs = test_Probability_class1_tree_large
-xaxis = sort(unique(c(0,1,probs)), decreasing = TRUE)
-res = Reduce(cbind,lapply(xaxis, function(prob){
-  useonly = which(probs >= prob)
-  predict_class = 1*(probs >= prob)
-  theprofit = Profit_Matrix[1,1]*sum(predict_class==1 & actual_class ==1)+
-    Profit_Matrix[1,2]*sum(predict_class==0 & actual_class ==1)+
-    Profit_Matrix[2,1]*sum(predict_class==1 & actual_class ==0)+
-    Profit_Matrix[2,2]*sum(predict_class==0 & actual_class ==0)
-  
-  c(100*length(useonly)/length(actual_class), theprofit) 
-  }))
-xaxis = res[1,]; yaxis = res[2,]
-names(xaxis)<- NULL; names(yaxis) <- NULL
-df<-data.frame(Percentile = xaxis, Profit = yaxis)
-iplot.df(df, x="Percentile", y="Profit", v=NULL)
-
-best_profits_large_tree = df[which.max(df$Profit),]
-```
 
 The profit curve using the logistic regression classifier: 
 
@@ -508,3 +484,4 @@ best_profits = rbind(best_profits_small_tree, best_profits_large_tree, best_prof
 rownames(best_profits) <- c("Small Tree", "Large Tree", "Logistic Regression")
 iprint.df(round(best_profits, 2))
 ```
+# Part 4: Conclusions
