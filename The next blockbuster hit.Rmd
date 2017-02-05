@@ -456,7 +456,7 @@ To have a feeling of whether the classification makes sense we look at two examp
 
 1.  Example decision to classify as a 0: one decision for example looks at whether Factor 2 < 1.1. Factor 2 corresponded to the number of likes and review of the movies. As typically movies with high reviews on IMDB and a lot of likes tend to be popular a low score on this factor indicates which pretty high probability  
 
-2. Example decision to classify as a 1: one decision for example looks at whether Factor 2 > 1.1, Factor 3 > 0.88 and Factor 6>1.8. bla bla
+2. Example decision to classify as a 1: one decision for example looks at whether Factor 2 > 1.1, Factor 3 > 0.88 and Factor 6>1.8.So essentially if the film has top actors and has a high budget then it is likely to be a top 250 which is intuitive.
 
 ```{r}
 # Let's first calculate all probabilites for the estimation, validation, and test data
@@ -572,6 +572,8 @@ iplot.df(df, x="Percentile", y="Profit", v=NULL)
 best_profits_logistic = df[which.max(df$Profit),]
 ```
 
+The logistic profit curve seems to indicate that our estimation is working as we are able to capture pretty much all the potential profit covering only the lowerst percentile.
+
 These are the maximum total profit achieved in the test data using the three classifiers (without any segment specific analysis so far). 
 
 ```{r}
@@ -584,9 +586,11 @@ iprint.df(round(best_profits, 2))
 
 There is ample room to extend this process to improve on it. 
 
+-We could have chosen a different amount of factors (i.e. six) given the last factor does not seem to be statistically significant in the regression
+
 - One could for example add more variables to target more specifically, such as countries performance (allowing to target specific countries, and not only have a global approach) or film types (allowing to target type of movies, and not only have a generic approach)
 
-- Another option would be to refine the prediction. The process currently predicts whether a movie will make it to the top 250 or not, this could be refined to target more specifically e.g., top 100, top 1000
+- Another option would be to refine the prediction. The process currently predicts whether a movie will make it to the top 250 or not, this could be refined to target more specifically e.g., top 100, top 1000. Maybe top 250 is too little (i.e. only 5% of the movies are a 1). Alternatively we could have tried to predict the actual IMDB score instead of just whether it's a hit.
 
 - Another question that a small alteration to this process could answer is finding the the key drivers and link between movie budget and IMDB success
 
