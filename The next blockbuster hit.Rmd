@@ -1,0 +1,592 @@
+---
+title: "The next blockbuster hit"
+author: "Stefania Calabretta, Willemijn Witteveen, Joao Baptista, Miguel Moura"
+output:
+  html_document:
+    css: AnalyticsStyles/default.css
+    theme: paper
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+  pdf_document:
+    includes:
+      in_header: AnalyticsStyles/default.sty
+always_allow_html: yes
+---
+
+<hr>\clearpage
+
+
+# The Business Question
+
+In this assignment we consider an important question for the movie industry: which key movie characteristics and segments can explain what makes a movie a top rated movie? We define top rated as the top 250 movies of IMDB.
+
+# The Data
+
+IMDB is an online database of information related to movies, and contains information about 3.871 movies. We used dataset as published on Kaggle (https://www.kaggle.com/deepmatrix/imdb-5000-movie-dataset). 
+
+## Dataset variables
+Name     | Description               | Metric (Yes/No)
+:--------|:--------------------------|:------------------------------------------
+movie_ID | Unique number             | Y
+movie_title | Title                  | N
+duration | Duration in minutes | Y
+color | Film in color (1) or not (0)  | Y
+title_year | Year of release | Y
+country | Country of production | N
+language | Original language of movie | N
+content_rating | MPAA rating | N
+budget_USD | Budget of movie | Y
+gross_USD | Cumulative amount grossed by movie | Y
+net_USD | Difference between gross and budget, i.e. profit | Y
+profitable | Profitable (1) or not (0) | Y
+director_name | Name director | N
+director_facebook? | Has Facebook (1), or not (0) | Y
+director_facebook_likes | Number of likes on Facebook | Y
+actor_1_name | Name actor | N
+actor_1_facebook? | Has Facebook (1), or not (0) | Y
+actor_1_facebook_likes | Number of likes on Facebook | Y
+actor_2_name | Name actor | N
+actor_2_facebook? | Has Facebook (1), or not (0) | Y
+actor_2_facebook_likes | Number of likes on Facebook | Y
+actor_3_name | Name actor | N
+actor_3_facebook? | Has Facebook (1), or not (0) | Y
+actor_3_facebook_likes | Number of likes on Facebook | Y
+cast_total_facebook_likes | Number of likes on Facebook | Y
+movie_facebook? | Has Facebook (1), or not (0) | Y
+movie_facebook_likes | Number of likes on Facebook | Y
+facenumber_in_poster | Number of faces in poster | Y
+num_voted_users | Number of IMDB users that voted | Y
+num_user_for_reviews | Number of users IMDB used for review | Y
+imdb_score | Average IMDB score | Y
+imdb_top_250 | In top 250 (1), or not (0) | Y
+
+# The Process
+
+The process we defined is split in 2 parts:
+
+1. *Part 1: Dimensionality reduction*: We will use **factor analysis** to combine together groups of the original raw attributes into a smaller number of key, meaningfull descriptors, so-called factors.  
+
+2. *Part 2: Classificiation*: We will use **classification analysis** (in particular CART tree and logistic regression methods) to predict whether or not a movie will be in the top 250 IMDB movies. 
+
+
+```{r setuplibraries, echo=FALSE, message=FALSE}
+suppressWarnings(source("AnalyticsLibraries/library.R"))
+# Package options
+suppressWarnings(ggthemr('fresh'))  # ggplot theme
+opts_knit$set(progress=FALSE, verbose=FALSE)
+opts_chunk$set(echo=FALSE, fig.align="center", fig.width=10, fig.height=6.35, results="asis")
+options(knitr.kable.NA = '')
+```
+
+<hr>\clearpage
+
+# Part 1: Dimensionality reduction
+
+To reach our goal, we took 6 steps to make the information analysis possible:
+
+- Step 1: Load tbe data: load IMDB data from 3.781 movies with 28 different variables including movie length, budget, gross revenues, director, main characters, etc.
+
+- Step 2: Select most relevant factors: confirm all the data is metric and which factors are to be used
+
+- Step 3: Scale the data
+
+- Step 4: Analyse data: check the data by doing basic visual exploration, descriptive statistics, and correlations of 
+the several variables
+
+- Step 5: Interpret the components: choose and interpret the number of components
+
+- Step 6: Save factor scores
+
+##Step 1: Load tbe data
+
+We load the data to use (see the raw .Rmd file to change the data file as needed):
+
+```{r setupdata1E, echo=TRUE, tidy=TRUE}
+#  the name of the file with the data used.
+datafile_name = "Dataset/IMDB-database.csv"
+
+# the maximum number of observations to show in the report and slides. 
+# DEFAULT is 10. 
+max_data_report = 10
+```
+
+##Step 2: Select most relevant factors
+
+We selected from the 28 variables the 18 factors that seemed more relevant / made more business sense to explain the IMDB score results and made them numeric data
+
+```{r}
+ProjectData <- read.csv(datafile_name)
+startProjectData <- as.matrix(ProjectData)
+ProjectData <- as.matrix(ProjectData)
+
+topdirnames = tail(names(sort(table(ProjectData[,"director_name"]))), 20)
+hastopdirector = ProjectData[,"director_name"] %in% topdirnames
+datafile_topnames = "Dataset/top20actors&directors.csv"
+Topnames <- read.csv(datafile_topnames)
+Topnames <- as.matrix(Topnames)
+Topnames<-Topnames[,1]
+
+hastopactor1 = ProjectData[,"actor_1_name"] %in% Topnames
+hastopactor2 = ProjectData[,"actor_2_name"] %in% Topnames
+hastopactor3 = ProjectData[,"actor_3_name"] %in% Topnames
+net_USD= as.numeric(ProjectData[,"net_USD"])
+cast_facebook_likes= as.numeric(ProjectData[,"cast_total_facebook_likes"])
+movieposter_faces= as.numeric(ProjectData[,"facenumber_in_poster"])
+movie_year= as.numeric(ProjectData[,"title_year"])
+actor1_fb_likes = as.numeric(ProjectData[,"actor_1_facebook_likes"])
+actor2_fb_likes = as.numeric(ProjectData[,"actor_2_facebook_likes"])
+actor3_fb_likes = as.numeric(ProjectData[,"actor_3_facebook_likes"])
+movie_fb_likes= as.numeric(ProjectData[,"movie_facebook_likes."])
+number_votes = as.numeric(ProjectData[,"num_voted_users"])
+movie_duration = as.numeric(ProjectData[,"duration"])
+movie_budget= as.numeric(ProjectData[,"budget_USD"])
+movie_profitable = as.numeric(ProjectData[,"profitable"])
+director_fb_likes= as.numeric(ProjectData[,"director_facebook_likes"])
+number_reviews= as.numeric(ProjectData[,"num_user_for_reviews"])
+numeric_projectdata = cbind(as.numeric(ProjectData[,"movie_ID"]),hastopactor1,hastopactor2,hastopactor3,hastopdirector,net_USD,cast_facebook_likes,movieposter_faces,movie_year,actor1_fb_likes,actor2_fb_likes,actor3_fb_likes,movie_fb_likes,number_votes,movie_duration,movie_budget,movie_profitable,director_fb_likes,number_reviews)
+
+```
+
+Name           | Description               
+:--------------|:--------------------------
+hastopactor1 | In top 20 (1), or not (0)
+hastopactor2 | In top 20 (1), or not (0)
+hastopactor3 | In top 20 (1), or not (0)
+hastopdirector | In top 20 (1), or not (0)
+movie_duration | Duration in minutes 
+movie_budget | Budget of movie
+movie_profitable | Profitable (1) or not (0)
+net_USD | Difference between gross and budget, i.e. profit 
+cast_facebook_likes | Number of likes on Facebook 
+movieposter_faces | Number of faces in poster 
+movie_year | Year of release 
+actor1_fb_likes | Number of likes on Facebook
+actor2_fb_likes | Number of likes on Facebook
+actor3_fb_likes | Number of likes on Facebook
+director_fb_likes | Number of likes on Facebook
+movie_fb_likes | Number of likes on Facebook
+number_votes | Number of IMDB users that voted 
+number_reviews | Number of users IMDB used for review 
+
+##Step 3: Scale the data
+
+We scaled the data because of the different magnitude of the numbers in the data under consideration, allowing to present results in relative terms and eliminate outliers
+
+```{r}
+
+ProjectData_scaled = apply(numeric_projectdata,2 , function(r) {
+    if (sd(r) != 0) 
+        res = (r - mean(r))/sd(r) else res = 0 * r
+    res
+})
+```
+
+## Step 4: Analyse data
+
+We analysed the data by checking the variables results in observations, its statistical representation and correlations
+
+Considering the observations, we could confirm how the results made business sense, with the third observation having the highest score in the number of votes in the output table, and then in database being the one with higher absolute number of votes.
+
+```{r setupfactor, echo=TRUE, tidy=TRUE}
+# ENTER original raw attributes to use. 
+# Use numbers, not column names, e.g. c(1:5, 7, 8) uses columns 1,2,3,4,5,7,8
+factor_attributes_used = c(2:20)
+# ENTER the selection criterions for the factors to use. 
+# Choices: "eigenvalue", "variance", "manual"
+factor_selectionciterion = "manual"
+
+# ENTER the desired minumum variance explained 
+# (Only used in case "variance" is the factor selection criterion used). 
+minimum_variance_explained = 65  # between 1 and 100
+
+# ENTER the number of factors to use 
+# (Only used in case "manual" is the factor selection criterion used).
+manual_numb_factors_used = 7
+
+# ENTER the rotation eventually used (e.g. "none", "varimax", "quatimax", "promax", "oblimin", "simplimax", and "cluster" - see help(principal)). Default is "varimax"
+rotation_used = "varimax"
+
+```
+
+```{r}
+factor_attributes_used <- intersect(factor_attributes_used, 1:ncol(ProjectData_scaled))
+ProjectDataFactor <- ProjectData_scaled[,factor_attributes_used]
+ProjectDataFactor <- ProjectData <- data.matrix(ProjectDataFactor)
+```
+Start by some basic visual exploration of, say, a few data:
+
+```{r}
+rownames(ProjectDataFactor) <- paste0("Obs.", sprintf("%02i", 1:nrow(ProjectDataFactor)))
+iprint.df(t(head(round(ProjectDataFactor, 2), max_data_report)))
+```
+
+The data we use here have the following descriptive statistics: 
+
+```{r}
+iprint.df(round(my_summary(ProjectDataFactor), 2))
+```
+
+In the correlations where we see how some of the variables have strong correlations. The most obvious ones are number of movie Facebook likes with the main actor Facebook likes and the number of IMDB reviews with the number of IMDB votes.
+
+```{r}
+thecor = round(cor(ProjectDataFactor),2)
+iprint.df(round(thecor,2), scale=TRUE)
+```
+
+
+```{r}
+# Here is how the `principal` function is used 
+UnRotated_Results<-principal(ProjectDataFactor, nfactors=ncol(ProjectDataFactor), rotate="none",score=TRUE)
+UnRotated_Factors<-round(UnRotated_Results$loadings,2)
+UnRotated_Factors<-as.data.frame(unclass(UnRotated_Factors))
+colnames(UnRotated_Factors)<-paste("Comp",1:ncol(UnRotated_Factors),sep="")
+```
+
+```{r}
+# Here is how we use the `PCA` function 
+Variance_Explained_Table_results<-PCA(ProjectDataFactor, graph=FALSE)
+Variance_Explained_Table<-Variance_Explained_Table_results$eig
+Variance_Explained_Table_copy<-Variance_Explained_Table
+
+rownames(Variance_Explained_Table) <- paste("Component", 1:nrow(Variance_Explained_Table), sep=" ")
+colnames(Variance_Explained_Table) <- c("Eigenvalue", "Pct of explained variance", "Cumulative pct of explained variance")
+```
+
+We visualised the **variance explained** as well as the **eigenvalues**:
+
+```{r}
+iprint.df(round(Variance_Explained_Table, 2))
+```
+
+```{r}
+eigenvalues  <- Variance_Explained_Table[, "Eigenvalue"]
+df           <- cbind(as.data.frame(eigenvalues), c(1:length(eigenvalues)), rep(1, length(eigenvalues)))
+colnames(df) <- c("eigenvalues", "components", "abline")
+iplot.df(melt(df, id="components"))
+```
+
+For the factors segmentation, we developed a scree plot and analysed the cumulative explained variance of the factors. In these factor analysis, we decided to use seven components that explain 70% of the total variance, assuring a high value that explain the results. 
+
+## Step 5: Interpret the factors
+
+We interpret the factors and look at the factor aggregated 
+
+In this step, we looked at the factors aggregated in each component. As described above, we will use 7 components that together explain 70% of total variance. Our business sense told that the results were logic:
+
+-	Component 1: positively relates movies Facebook likes with the main and secondary actor Facebook likes
+
+-	Component 2: positively combines number of IMDB movie reviews with number of IMDB movie votes
+
+-	Component 3: negatively relates movies budget with net profits
+
+-	Component 4 and 5: positively combines actor and Director name with Facebook likes 
+
+-	Component 6: positively combines the year of the movie with the number of movie Facebook likes
+
+-	Component 7: reflects the number of faces in the movies poster 
+
+
+```{r}
+if (factor_selectionciterion == "eigenvalue")
+  factors_selected = sum(Variance_Explained_Table_copy[,1] >= 1)
+if (factor_selectionciterion == "variance")
+  factors_selected = 1:head(which(Variance_Explained_Table_copy[,"cumulative percentage of variance"]>= minimum_variance_explained),1)
+if (factor_selectionciterion == "manual")
+  factors_selected = manual_numb_factors_used
+```
+
+To better visualize them, we will use what is called a "rotation". There are many rotations methods. In this case we selected the `r rotation_used` rotation. For our data, the `r factors_selected` selected factors look as follows after this rotation: 
+
+```{r}
+Rotated_Results<-principal(ProjectDataFactor, nfactors=max(factors_selected), rotate=rotation_used,score=TRUE)
+Rotated_Factors<-round(Rotated_Results$loadings,2)
+Rotated_Factors<-as.data.frame(unclass(Rotated_Factors))
+colnames(Rotated_Factors)<-paste("Comp.",1:ncol(Rotated_Factors),sep="")
+
+sorted_rows <- sort(Rotated_Factors[,1], decreasing = TRUE, index.return = TRUE)$ix
+Rotated_Factors <- Rotated_Factors[sorted_rows,]
+
+iprint.df(Rotated_Factors, scale=TRUE)
+```
+
+To better visualize and interpret the factors we often "suppress" loadings with small values, e.g. with absolute values smaller than 0.5. In this case our factors look as follows after suppressing the small numbers:
+
+```{r}
+Rotated_Factors_thres <- Rotated_Factors
+MIN_VALUE<-0.5
+Rotated_Factors_thres[abs(Rotated_Factors_thres) < MIN_VALUE]<-NA
+colnames(Rotated_Factors_thres)<- colnames(Rotated_Factors)
+rownames(Rotated_Factors_thres)<- rownames(Rotated_Factors)
+
+iprint.df(Rotated_Factors_thres, scale=TRUE)
+```
+
+
+## Step 6:  Save factor scores 
+
+We can now either replace all initial variables used in this part with the factors scores or just select one of the initial variables for each of the selected factors in order to represent that factor. Here is how the factor scores  are for the first few respondents:
+
+```{r}
+NEW_ProjectData <- round(Rotated_Results$scores[,1:factors_selected,drop=F],2)
+colnames(NEW_ProjectData)<-paste("DV (Factor)",1:ncol(NEW_ProjectData),sep=" ")
+
+iprint.df(t(head(NEW_ProjectData, 10)), scale=TRUE)
+```
+
+
+
+
+#Part 2: Classification
+
+In order to predict whether a move will be in the top 250 imdb movies or not based on the 7 factors we found above we use classification methods: in particular the two methods we use are the CART tree methodology and the logistic regression method.
+
+To start off, we set the variables for CART, and of the profit matrices to then evaluate our predictions. 
+As mentioned, the dependent variable is a vector of 0,1 depending on whether the movie is top 250 or not. the independent variables are the seven factors.
+For the profit matrices, given the low percentage of top 250 movies (250/4000) we assume that guessing the movie gives a +50 and wrongly predicting it will be a high grossing movie gives a -1.
+
+```{r}
+Istop250 = as.numeric(startProjectData[,"imdb_top_250"])
+ProjectClass<-cbind(Istop250,NEW_ProjectData)
+
+# Please ENTER the class (dependent) variable:
+# Please use numbers, not column names! e.g. 82 uses the 82nd column are dependent variable.
+# YOU NEED TO MAKE SURE THAT THE DEPENDENT VARIABLES TAKES ONLY 2 VALUES: 0 and 1!!!
+dependent_variable= 1
+
+# Please ENTER the attributes to use as independent variables 
+# Please use numbers, not column names! e.g. c(1:5, 7, 8) uses columns 1,2,3,4,5,7,8
+independent_variables= c(2:8)
+
+# Please ENTER the profit/cost values for the correctly and wrong classified data:
+actual_1_predict_1 = 50
+actual_1_predict_0 = 0
+actual_0_predict_1 = -1
+actual_0_predict_0 = 0
+```
+
+We then determine the parameters that will be used for the CART analysis- in particular we set the probabiity threshold to be 65%. We originally used 70% but some of the clusters were exactly 70% so we reduced to capture those.
+
+We also determine how much data we want to use to estimate the parameters, and how much data we want to use to determine how correct our model is (we use 80% of the data for estimation)
+
+Finally we determine the level of complexity of the tree we would like to achieve by choosing the complexity parameter- having tried a few options 0.05 gave a tree that was relatively simple but gives reasonable decision nodes.
+
+```{r,echo=TRUE, tidy=TRUE}
+Probability_Threshold=65 # between 1 and 99%
+estimation_data_percent = 80
+validation_data_percent = 10
+random_sampling = 0
+CART_cp = 0.005
+min_segment = 100
+```
+
+```{r}
+ProjectData = ProjectClass # Just to initialize the data
+
+Probability_Threshold = Probability_Threshold/100 # make it between 0 and 1
+
+dependent_variable = unique(sapply(dependent_variable,function(i) min(ncol(ProjectData), max(i,1))))
+independent_variables = unique(sapply(independent_variables,function(i) min(ncol(ProjectData), max(i,1))))
+```
+
+```{r}
+Profit_Matrix = matrix(c(actual_1_predict_1, actual_0_predict_1, actual_1_predict_0, actual_0_predict_0), ncol=2)
+colnames(Profit_Matrix)<- c("Predict 1", "Predict 0")
+rownames(Profit_Matrix) <- c("Actual 1", "Actual 0")
+test_data_percent = 100-estimation_data_percent-validation_data_percent
+CART_control = rpart.control(cp = CART_cp)
+```
+
+
+
+The resulting classification tree is below:
+
+```{r}
+# FIrst we split the data in estimation, validation, and test
+
+if (random_sampling){
+  estimation_data_ids=sample.int(nrow(ProjectData),floor(estimation_data_percent*nrow(ProjectData)/100))
+  non_estimation_data = setdiff(1:nrow(ProjectData),estimation_data_ids)
+  validation_data_ids=non_estimation_data[sample.int(length(non_estimation_data), floor(validation_data_percent/(validation_data_percent+test_data_percent)*length(non_estimation_data)))]
+  } else {
+    estimation_data_ids=1:floor(estimation_data_percent*nrow(ProjectData)/100)
+    non_estimation_data = setdiff(1:nrow(ProjectData),estimation_data_ids)
+    validation_data_ids = (tail(estimation_data_ids,1)+1):(tail(estimation_data_ids,1) + floor(validation_data_percent/(validation_data_percent+test_data_percent)*length(non_estimation_data)))
+    }
+
+test_data_ids = setdiff(1:nrow(ProjectData), union(estimation_data_ids,validation_data_ids))
+
+estimation_data=ProjectData[estimation_data_ids,]
+validation_data=ProjectData[validation_data_ids,]
+test_data=ProjectData[test_data_ids,]
+```
+
+```{r}
+# just name the variables numerically so that they look ok on the tree plots
+independent_variables_nolabel = paste("IV", 1:length(independent_variables), sep="")
+
+estimation_data_nolabel = cbind(estimation_data[,dependent_variable], estimation_data[,independent_variables])
+colnames(estimation_data_nolabel)<- c(colnames(estimation_data)[dependent_variable],independent_variables_nolabel)
+
+validation_data_nolabel = cbind(validation_data[,dependent_variable], validation_data[,independent_variables])
+colnames(validation_data_nolabel)<- c(dependent_variable,independent_variables_nolabel)
+
+test_data_nolabel = cbind(test_data[,dependent_variable], test_data[,independent_variables])
+colnames(test_data_nolabel)<- c(dependent_variable,independent_variables_nolabel)
+
+estimation_data_nolabel = data.frame(estimation_data_nolabel)
+validation_data_nolabel = data.frame(validation_data_nolabel)
+test_data_nolabel = data.frame(test_data_nolabel)
+
+estimation_data = data.frame(estimation_data)
+validation_data = data.frame(validation_data)
+test_data = data.frame(test_data)
+```
+
+```{r}
+formula=paste(colnames(estimation_data)[dependent_variable],paste(Reduce(paste,sapply(head(independent_variables_nolabel,-1), function(i) paste(i,"+",sep=""))),tail(independent_variables_nolabel,1),sep=""),sep="~")
+CART_tree<-rpart(formula, data= estimation_data_nolabel,method="class", control=CART_control)
+
+rpart.plot(CART_tree, box.palette="OrBu", type=3, extra=1, fallen.leaves=F, branch.lty=3)
+```
+
+As we can see from the graph, there are 8 different ending points- of these only 3 would lead the movie to be in the top 250.
+To have a feeling of whether the classification makes sense we look at two example decisions.
+
+1.  Example decision to classify as a 0: one decision for example looks at whether Factor 2 < 1.1. Factor 2 corresponded to the number of likes and review of the movies. As typically movies with high reviews on IMDB and a lot of likes tend to be popular a low score on this factor indicates which pretty high probability  
+
+2. Example decision to classify as a 1: one decision for example looks at whether Factor 2 > 1.1, Factor 3 > 0.88 and Factor 6>1.8. bla bla
+
+```{r}
+# Let's first calculate all probabilites for the estimation, validation, and test data
+estimation_Probability_class1_tree<-predict(CART_tree, estimation_data_nolabel)[,2]
+
+validation_Probability_class1_tree<-predict(CART_tree, validation_data_nolabel)[,2]
+
+test_Probability_class1_tree<-predict(CART_tree, test_data_nolabel)[,2]
+
+estimation_prediction_class_tree=1*as.vector(estimation_Probability_class1_tree > Probability_Threshold)
+
+
+validation_prediction_class_tree=1*as.vector(validation_Probability_class1_tree > Probability_Threshold)
+
+test_prediction_class_tree=1*as.vector(test_Probability_class1_tree > Probability_Threshold)
+```
+
+We then run a logistic regression to have an alternative classification of the movies
+
+```{r,echo=TRUE, tidy=TRUE}
+formula_log=paste(colnames(estimation_data[,dependent_variable,drop=F]),paste(Reduce(paste,sapply(head(independent_variables,-1), function(i) paste(colnames(estimation_data)[i],"+",sep=""))),colnames(estimation_data)[tail(independent_variables,1)],sep=""),sep="~")
+
+logreg_solution <- glm(formula_log, family=binomial(link="logit"),  data=estimation_data)
+
+log_coefficients = round(summary(logreg_solution)$coefficients,1)
+iprint.df(log_coefficients)
+
+```
+
+From the logistic regression we can determine what the most significant factors are and whether some of the factors are not significant: in our case it seems that factor 7 is not statistically significant. This is in lines with expectations as factor 7 is the number of faces in the movie poster that we did not expect to have significant impact.
+
+
+```{r}
+estimation_Probability_class1_log<-predict(logreg_solution, type="response", newdata=estimation_data[,independent_variables])
+validation_Probability_class1_log<-predict(logreg_solution, type="response", newdata=validation_data[,independent_variables])
+test_Probability_class1_log<-predict(logreg_solution, type="response", newdata=test_data[,independent_variables])
+
+estimation_prediction_class_log=1*as.vector(estimation_Probability_class1_log > Probability_Threshold)
+validation_prediction_class_log=1*as.vector(validation_Probability_class1_log > Probability_Threshold)
+test_prediction_class_log=1*as.vector(test_Probability_class1_log > Probability_Threshold)
+```
+
+We then compare the two methods by checking how much "weight" these three methods put on the different factors: the below table shows the importance assigned to each factor in the classification (as a percentage of the importance of the largest factor)
+
+As we can see the results of the two methodologies are in line and the the most predictive factors are factor 2, factor 3 and factor 5- respectively number of IMDB reviews, profit of movie and number of facebook likes. This is in line with expectations. 
+Factor 7 is the least important with both methodologies.
+
+```{r}
+log_importance = tail(log_coefficients[,"z value", drop=F],-1) # remove the intercept
+log_importance = log_importance/max(abs(log_importance))
+
+tree_importance = CART_tree$variable.importance
+tree_ordered_drivers = as.numeric(gsub("\\IV"," ",names(CART_tree$variable.importance)))
+tree_importance_final = rep(0,length(independent_variables))
+tree_importance_final[tree_ordered_drivers] <- tree_importance
+tree_importance_final <- tree_importance_final/max(abs(tree_importance_final))
+tree_importance_final <- tree_importance_final*sign(log_importance)
+
+Importance_table <- cbind(tree_importance_final, log_importance)
+colnames(Importance_table) <- c("CART 1", "Logistic Regr.")
+rownames(Importance_table) <- rownames(log_importance)
+
+iprint.df(Importance_table)
+```
+
+Finally, if we were to use the estimated classification models on the test data, we would get the following profit curves (using the profit parameters set earlier)
+
+The profit curve using the small classification tree: 
+
+```{r}
+actual_class<- test_data[,dependent_variable]
+
+probs = test_Probability_class1_tree
+xaxis = sort(unique(c(0,1,probs)), decreasing = TRUE)
+res = Reduce(cbind,lapply(xaxis, function(prob){
+  useonly = which(probs >= prob)
+  predict_class = 1*(probs >= prob)
+  theprofit = Profit_Matrix[1,1]*sum(predict_class==1 & actual_class ==1)+
+    Profit_Matrix[1,2]*sum(predict_class==0 & actual_class ==1)+
+    Profit_Matrix[2,1]*sum(predict_class==1 & actual_class ==0)+
+    Profit_Matrix[2,2]*sum(predict_class==0 & actual_class ==0)
+  
+  c(100*length(useonly)/length(actual_class), theprofit) 
+  }))
+xaxis = res[1,]; yaxis = res[2,]
+df<-data.frame(Percentile = xaxis, Profit = yaxis)
+ iplot.df(df, x="Percentile", y="Profit", v=NULL)
+
+best_profits_small_tree = df[which.max(df$Profit),]
+```
+This result is not reasonable, this may be  because the tree is doing a rough probability estimation. 
+
+The profit curve using the logistic regression classifier: 
+
+```{r}
+probs = test_Probability_class1_log
+xaxis = sort(unique(c(0,1,probs)), decreasing = TRUE)
+res = Reduce(cbind,lapply(xaxis, function(prob){
+  useonly = which(probs >= prob)
+  predict_class = 1*(probs >= prob)
+  theprofit = Profit_Matrix[1,1]*sum(predict_class==1 & actual_class ==1)+
+    Profit_Matrix[1,2]*sum(predict_class==0 & actual_class ==1)+
+    Profit_Matrix[2,1]*sum(predict_class==1 & actual_class ==0)+
+    Profit_Matrix[2,2]*sum(predict_class==0 & actual_class ==0)
+  
+  c(100*length(useonly)/length(actual_class), theprofit) 
+  }))
+xaxis = res[1,]; yaxis = res[2,]
+names(xaxis)<- NULL; names(yaxis) <- NULL
+df<-data.frame(Percentile = xaxis, Profit = yaxis)
+iplot.df(df, x="Percentile", y="Profit", v=NULL)
+
+best_profits_logistic = df[which.max(df$Profit),]
+```
+
+These are the maximum total profit achieved in the test data using the three classifiers (without any segment specific analysis so far). 
+
+```{r}
+best_profits = rbind(best_profits_small_tree, best_profits_logistic)
+rownames(best_profits) <- c("Small Tree", "Logistic Regression")
+iprint.df(round(best_profits, 2))
+```
+
+# Further Ideas
+
+There is ample room to extend this process to improve on it. 
+
+- One could for example add more variables to target more specifically, such as countries performance (allowing to target specific countries, and not only have a global approach) or film types (allowing to target type of movies, and not only have a generic approach)
+
+- Another option would be to refine the prediction. The process currently predicts whether a movie will make it to the top 250 or not, this could be refined to target more specifically e.g., top 100, top 1000
+
+- Another question that a small alteration to this process could answer is finding the the key drivers and link between movie budget and IMDB success
+
